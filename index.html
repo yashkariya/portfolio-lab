@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Portfolio Health Lab</title>
+<style>
+:root {
+  --bg: #0f172a; --card: #1e293b; --text: #f8fafc; --muted: #94a3b8;
+  --border: #334155; --primary: #3b82f6; --success: #10b981; --danger: #ef4444;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+body { background: var(--bg); color: var(--text); padding: 12px; font-size: 15px; }
+header { text-align: center; margin-bottom: 16px; padding: 8px; }
+header h1 { font-size: 22px; color: var(--primary); margin-bottom: 4px; }
+header p { font-size: 13px; color: var(--muted); }
+
+.card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px; margin-bottom: 14px; }
+.metrics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+.metric-box { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 12px; text-align: center; }
+.metric-box .label { font-size: 11px; text-transform: uppercase; color: var(--muted); }
+.metric-box .value { font-size: 18px; font-weight: 700; margin-top: 4px; }
+
+h2 { font-size: 16px; margin-bottom: 10px; border-bottom: 1px solid var(--border); padding-bottom: 6px; }
+
+.form-group { margin-bottom: 12px; position: relative; }
+label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+input { width: 100%; padding: 12px; font-size: 16px; background: #0b0f19; border: 1px solid var(--border); border-radius: 8px; color: var(--text); outline: none; }
+input:focus { border-color: var(--primary); }
+
+.suggestions { position: absolute; top: 100%; left: 0; right: 0; background: #0b0f19; border: 1px solid var(--border); border-radius: 8px; max-height: 220px; overflow-y: auto; z-index: 100; display: none; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.5); }
+.suggestion-item { padding: 12px; font-size: 14px; border-bottom: 1px solid var(--border); cursor: pointer; }
+.suggestion-item:active { background: #1e293b; }
+.suggestion-item strong { display: block; color: #fff; }
+.suggestion-item span { font-size: 12px; color: var(--muted); }
+
+.btn-group { display: flex; gap: 8px; margin-top: 12px; }
+button { flex: 1; padding: 12px; font-size: 14px; font-weight: 600; border: none; border-radius: 8px; cursor: pointer; }
+.btn-primary { background: var(--primary); color: white; }
+.btn-secondary { background: #334155; color: white; }
+.btn-danger { background: rgba(239, 68, 68, 0.2); color: var(--danger); border: 1px solid var(--danger); }
+
+.holding-card { background: #0b0f19; border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+.holding-info h4 { font-size: 14px; }
+.holding-info p { font-size: 12px; color: var(--muted); }
+.holding-vals { text-align: right; }
+.holding-vals .amt { font-weight: 700; }
+.profit { color: var(--success); }
+.loss { color: var(--danger); }
+.del-btn { background: none; border: none; color: var(--danger); font-size: 18px; padding: 4px 8px; }
+.empty-msg { text-align: center; color: var(--muted); padding: 16px; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Portfolio Health Lab</h1>
+  <p>Cloud-Hosted Mobile Equity Tracker</p>
+</header>
+
+<div class="metrics-grid">
+  <div class="metric-box"><div class="label">Total Value</div><div class="value" id="totalVal">₹0</div></div>
+  <div class="metric-box"><div class="label">Total P&amp;L</div><div class="value" id="totalPnl">₹0</div></div>
+</div>
+
+<div class="card">
+  <h2>Add Holding</h2>
+  <div class="form-group">
+    <label>Stock Name / Ticker</label>
+    <input type="text" id="stockSearch" placeholder="Type company name or symbol..." autocomplete="off">
+    <div id="suggestionsBox" class="suggestions"></div>
+  </div>
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+    <div class="form-group"><label>Quantity</label><input type="number" id="qty" placeholder="10"></div>
+    <div class="form-group"><label>Avg Cost (₹)</label><input type="number" id="cost" placeholder="1500"></div>
+  </div>
+  <div class="form-group"><label>Current Price (₹)</label><input type="number" id="price" placeholder="1650"></div>
+  <div class="btn-group">
+    <button class="btn-primary" onclick="addHolding()">Add Stock</button>
+    <button class="btn-secondary" onclick="loadSample()">Load Sample</button>
+  </div>
+</div>
+
+<div class="card">
+  <h2>My Holdings</h2>
+  <div id="holdingsList"><div class="empty-msg">No holdings added yet.</div></div>
+  <button class="btn-danger" onclick="clearAll()" id="clearBtn" style="display:none; margin-top:10px; width:100%;">Clear All Data</button>
+</div>
+
+<script>
+const stockDirectory = [
+  ["RELIANCE", "Reliance Industries", "Energy"],
+  ["TCS", "Tata Consultancy Services", "IT"],
+  ["HDFCBANK", "HDFC Bank", "Financials"],
+  ["ICICIBANK", "ICICI Bank", "Financials"],
+  ["INFY", "Infosys", "IT"],
+  ["SBIN", "State Bank of India", "Financials"],
+  ["BHARTIARTL", "Bharti Airtel", "Telecom"],
+  ["ITC", "ITC Limited", "FMCG"],
+  ["LT", "Larsen & Toubro", "Industrials"],
+  ["HINDUNILVR", "Hindustan Unilever", "FMCG"],
+  ["KOTAKBANK", "Kotak Mahindra Bank", "Financials"],
+  ["AXISBANK", "Axis Bank", "Financials"],
+  ["BAJFINANCE", "Bajaj Finance", "Financials"],
+  ["MARUTI", "Maruti Suzuki", "Automobile"],
+  ["TATAMOTORS", "Tata Motors", "Automobile"],
+  ["TATASTEEL", "Tata Steel", "Metals"],
+  ["SUNPHARMA", "Sun Pharma", "Healthcare"],
+  ["ZOMATO", "Zomato", "Consumer Services"],
+  ["PAYTM", "One 97 Communications", "Fintech"],
+  ["SUZLON", "Suzlon Energy", "Power"],
+  ["HFCL", "HFCL Limited", "Telecom"],
+  ["RVNL", "Rail Vikas Nigam", "Infra"],
+  ["IRFC", "Indian Railway Finance Corp", "Financials"],
+  ["IREDA", "IREDA", "Power"]
+];
+
+let holdings = JSON.parse(localStorage.getItem('portfolio_lab_data') || '[]');
+const searchInput = document.getElementById('stockSearch');
+const suggestionsBox = document.getElementById('suggestionsBox');
+
+searchInput.addEventListener('input', () => {
+  const query = searchInput.value.trim().toLowerCase();
+  if(!query) { suggestionsBox.style.display = 'none'; return; }
+  const matches = stockDirectory.filter(s => s[0].toLowerCase().includes(query) || s[1].toLowerCase().includes(query));
+  if(!matches.length) { suggestionsBox.style.display = 'none'; return; }
+  suggestionsBox.innerHTML = matches.map(m => `
+    <div class="suggestion-item" onclick="selectStock('${m[1]} (${m[0]})')">
+      <strong>${m[1]}</strong>
+      <span>Ticker: ${m[0]} · Sector: ${m[2]}</span>
+    </div>
+  `).join('');
+  suggestionsBox.style.display = 'block';
+});
+
+function selectStock(val) {
+  searchInput.value = val;
+  suggestionsBox.style.display = 'none';
+  document.getElementById('qty').focus();
+}
+
+document.addEventListener('click', (e) => {
+  if(!e.target.closest('.form-group')) suggestionsBox.style.display = 'none';
+});
+
+function saveAndRender() {
+  localStorage.setItem('portfolio_lab_data', JSON.stringify(holdings));
+  render();
+}
+
+function addHolding() {
+  const name = searchInput.value.trim();
+  const qty = parseFloat(document.getElementById('qty').value);
+  const cost = parseFloat(document.getElementById('cost').value);
+  const price = parseFloat(document.getElementById('price').value);
+
+  if(!name || isNaN(qty) || isNaN(cost) || isNaN(price) || qty <= 0) {
+    alert('Please enter a stock name, valid quantity, and prices.');
+    return;
+  }
+
+  holdings.push({ id: Date.now(), name, qty, cost, price });
+  searchInput.value = '';
+  document.getElementById('qty').value = '';
+  document.getElementById('cost').value = '';
+  document.getElementById('price').value = '';
+  saveAndRender();
+}
+
+function removeHolding(id) {
+  holdings = holdings.filter(h => h.id !== id);
+  saveAndRender();
+}
+
+function clearAll() {
+  if(confirm('Clear all holdings?')) { holdings = []; saveAndRender(); }
+}
+
+function loadSample() {
+  holdings = [
+    { id: 1, name: 'HDFC Bank (HDFCBANK)', qty: 20, cost: 1500, price: 1650 },
+    { id: 2, name: 'Reliance Industries (RELIANCE)', qty: 10, cost: 2400, price: 2550 }
+  ];
+  saveAndRender();
+}
+
+function render() {
+  const listEl = document.getElementById('holdingsList');
+  const clearBtn = document.getElementById('clearBtn');
+  
+  if(!holdings.length) {
+    listEl.innerHTML = '<div class="empty-msg">No holdings added yet.</div>';
+    clearBtn.style.display = 'none';
+    document.getElementById('totalVal').textContent = '₹0';
+    document.getElementById('totalPnl').textContent = '₹0';
+    return;
+  }
+
+  clearBtn.style.display = 'block';
+  let totalVal = 0, totalCost = 0;
+
+  listEl.innerHTML = holdings.map(h => {
+    const cv = h.qty * h.price, iv = h.qty * h.cost, pnl = cv - iv, pct = iv > 0 ? (pnl/iv)*100 : 0;
+    totalVal += cv; totalCost += iv;
+    return `
+      <div class="holding-card">
+        <div class="holding-info">
+          <h4>${h.name}</h4>
+          <p>Qty: ${h.qty} | Cost: ₹${h.cost}</p>
+        </div>
+        <div class="holding-vals">
+          <div class="amt">₹${cv.toLocaleString('en-IN')}</div>
+          <div class="${pnl >= 0 ? 'profit' : 'loss'}">${pnl >= 0 ? '+' : ''}₹${pnl.toLocaleString('en-IN')} (${pct.toFixed(1)}%)</div>
+        </div>
+        <button class="del-btn" onclick="removeHolding(${h.id})">×</button>
+      </div>
+    `;
+  }).join('');
+
+  const netPnl = totalVal - totalCost;
+  document.getElementById('totalVal').textContent = '₹' + totalVal.toLocaleString('en-IN');
+  const pnlEl = document.getElementById('totalPnl');
+  pnlEl.textContent = '₹' + netPnl.toLocaleString('en-IN');
+  pnlEl.className = 'value ' + (netPnl >= 0 ? 'profit' : 'loss');
+}
+
+render();
+</script>
+</body>
+</html>
