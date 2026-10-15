@@ -7,32 +7,65 @@ st.set_page_config(page_title="Live Portfolio Health Lab", layout="centered")
 st.title("📈 Live Portfolio Health Lab")
 st.write("Real-time Indian equity portfolio tracker powered by live market data.")
 
-# Initialize session state for holdings
+# Comprehensive Indian Stock Directory
+stock_directory = {
+    "Reliance Industries (RELIANCE)": "RELIANCE.NS",
+    "Tata Consultancy Services (TCS)": "TCS.NS",
+    "HDFC Bank (HDFCBANK)": "HDFCBANK.NS",
+    "ICICI Bank (ICICIBANK)": "ICICIBANK.NS",
+    "Infosys (INFY)": "INFY.NS",
+    "State Bank of India (SBIN)": "SBIN.NS",
+    "Bharti Airtel (BHARTIARTL)": "BHARTIARTL.NS",
+    "ITC Limited (ITC)": "ITC.NS",
+    "Larsen & Toubro (LT)": "LT.NS",
+    "Hindustan Unilever (HINDUNILVR)": "HINDUNILVR.NS",
+    "Kotak Mahindra Bank (KOTAKBANK)": "KOTAKBANK.NS",
+    "Axis Bank (AXISBANK)": "AXISBANK.NS",
+    "Bajaj Finance (BAJFINANCE)": "BAJFINANCE.NS",
+    "Maruti Suzuki (MARUTI)": "MARUTI.NS",
+    "Sun Pharmaceutical (SUNPHARMA)": "SUNPHARMA.NS",
+    "Tata Motors (TATAMOTORS)": "TATAMOTORS.NS",
+    "Tata Steel (TATASTEEL)": "TATASTEEL.NS",
+    "NTPC (NTPC)": "NTPC.NS",
+    "Power Grid Corp (POWERGRID)": "POWERGRID.NS",
+    "ONGC (ONGC)": "ONGC.NS",
+    "Wipro (WIPRO)": "WIPRO.NS",
+    "HCL Technologies (HCLTECH)": "HCLTECH.NS",
+    "Zomato (ZOMATO)": "ZOMATO.NS",
+    "Tata Consumer (TATACONSUM)": "TATACONSUM.NS",
+    "Titan Company (TITAN)": "TITAN.NS",
+    "Asian Paints (ASIANPAINT)": "ASIANPAINT.NS",
+    "Nifty BeES ETF (NIFTYBEES)": "NIFTYBEES.NS",
+    "Bank BeES ETF (BANKBEES)": "BANKBEES.NS"
+}
+
 if 'holdings' not in st.session_state:
     st.session_state.holdings = []
 
 # Input Form
 with st.form("holding_form", clear_on_submit=True):
     st.subheader("Add Holding")
-    # User inputs NSE/BSE symbol
-    ticker_input = st.text_input("Stock Ticker (e.g., RELIANCE, TCS, HDFCBANK, INFY)")
+    
+    # Searchable selectbox for stocks
+    selected_stock_name = st.selectbox(
+        "Select or Search Stock", 
+        options=list(stock_directory.keys())
+    )
+    
     qty = st.number_input("Quantity", min_value=0.0, step=1.0, value=10.0)
     cost = st.number_input("Average Cost Price (₹)", min_value=0.0, step=1.0, value=1000.0)
     
     submitted = st.form_submit_button("Add to Portfolio")
     
-    if submitted and ticker_input:
-        clean_ticker = ticker_input.upper().strip()
-        # Automatically append .NS for National Stock Exchange if not provided
-        if not clean_ticker.endswith(('.NS', '.BO')):
-            clean_ticker += '.NS'
-            
+    if submitted:
+        ticker = stock_directory[selected_stock_name]
         st.session_state.holdings.append({
-            'ticker': clean_ticker,
+            'name': selected_stock_name,
+            'ticker': ticker,
             'qty': qty,
             'cost': cost
         })
-        st.success(f"Added {clean_ticker} successfully!")
+        st.success(f"Added {selected_stock_name} successfully!")
 
 # Display Portfolio & Fetch Live Prices
 if st.session_state.holdings:
@@ -45,11 +78,10 @@ if st.session_state.holdings:
     for h in st.session_state.holdings:
         try:
             stock = yf.Ticker(h['ticker'])
-            # Fetch live current price
             hist = stock.history(period="1d")
             current_price = hist['Close'].iloc[-1] if not hist.empty else h['cost']
         except Exception:
-            current_price = h['cost'] # Fallback if network fails
+            current_price = h['cost']
             
         market_val = h['qty'] * current_price
         invested_val = h['qty'] * h['cost']
@@ -60,7 +92,7 @@ if st.session_state.holdings:
         total_cost_value += invested_val
         
         portfolio_data.append({
-            'Stock': h['ticker'].replace('.NS', ''),
+            'Stock': h['name'],
             'Qty': h['qty'],
             'Cost (₹)': h['cost'],
             'Live Price (₹)': round(current_price, 2),
@@ -75,7 +107,6 @@ if st.session_state.holdings:
     total_pnl = total_market_value - total_cost_value
     total_pnl_pct = (total_pnl / total_cost_value) * 100 if total_cost_value > 0 else 0
     
-    # Metrics Summary
     col1, col2 = st.columns(2)
     col1.metric("Total Portfolio Value", f"₹{total_market_value:,.2f}")
     col2.metric("Total P&L", f"₹{total_pnl:,.2f}", delta=f"{total_pnl_pct:.2f}%")
@@ -84,5 +115,4 @@ if st.session_state.holdings:
         st.session_state.holdings = []
         st.rerun()
 else:
-    st.info("No holdings added yet. Enter a stock ticker above to begin tracking with live prices.")
-  
+    st.info("No holdings added yet. Select a stock above to begin tracking with live prices.")
