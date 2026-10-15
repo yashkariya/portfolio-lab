@@ -5,67 +5,38 @@ import yfinance as yf
 st.set_page_config(page_title="Live Portfolio Health Lab", layout="centered")
 
 st.title("📈 Live Portfolio Health Lab")
-st.write("Real-time Indian equity portfolio tracker powered by live market data.")
-
-# Comprehensive Indian Stock Directory
-stock_directory = {
-    "Reliance Industries (RELIANCE)": "RELIANCE.NS",
-    "Tata Consultancy Services (TCS)": "TCS.NS",
-    "HDFC Bank (HDFCBANK)": "HDFCBANK.NS",
-    "ICICI Bank (ICICIBANK)": "ICICIBANK.NS",
-    "Infosys (INFY)": "INFY.NS",
-    "State Bank of India (SBIN)": "SBIN.NS",
-    "Bharti Airtel (BHARTIARTL)": "BHARTIARTL.NS",
-    "ITC Limited (ITC)": "ITC.NS",
-    "Larsen & Toubro (LT)": "LT.NS",
-    "Hindustan Unilever (HINDUNILVR)": "HINDUNILVR.NS",
-    "Kotak Mahindra Bank (KOTAKBANK)": "KOTAKBANK.NS",
-    "Axis Bank (AXISBANK)": "AXISBANK.NS",
-    "Bajaj Finance (BAJFINANCE)": "BAJFINANCE.NS",
-    "Maruti Suzuki (MARUTI)": "MARUTI.NS",
-    "Sun Pharmaceutical (SUNPHARMA)": "SUNPHARMA.NS",
-    "Tata Motors (TATAMOTORS)": "TATAMOTORS.NS",
-    "Tata Steel (TATASTEEL)": "TATASTEEL.NS",
-    "NTPC (NTPC)": "NTPC.NS",
-    "Power Grid Corp (POWERGRID)": "POWERGRID.NS",
-    "ONGC (ONGC)": "ONGC.NS",
-    "Wipro (WIPRO)": "WIPRO.NS",
-    "HCL Technologies (HCLTECH)": "HCLTECH.NS",
-    "Zomato (ZOMATO)": "ZOMATO.NS",
-    "Tata Consumer (TATACONSUM)": "TATACONSUM.NS",
-    "Titan Company (TITAN)": "TITAN.NS",
-    "Asian Paints (ASIANPAINT)": "ASIANPAINT.NS",
-    "Nifty BeES ETF (NIFTYBEES)": "NIFTYBEES.NS",
-    "Bank BeES ETF (BANKBEES)": "BANKBEES.NS"
-}
+st.write("Track any NSE/BSE stock with real-time market data.")
 
 if 'holdings' not in st.session_state:
     st.session_state.holdings = []
 
-# Input Form
+# Input Form for Any Stock Symbol
 with st.form("holding_form", clear_on_submit=True):
-    st.subheader("Add Holding")
+    st.subheader("Add Any Stock Holding")
     
-    # Searchable selectbox for stocks
-    selected_stock_name = st.selectbox(
-        "Select or Search Stock", 
-        options=list(stock_directory.keys())
-    )
-    
+    # Text input allowing any ticker symbol across exchanges
+    ticker_symbol = st.text_input("Enter NSE/BSE Ticker Symbol (e.g., HFCL, SUZLON, ZOMATO, RELIANCE)").upper().strip()
     qty = st.number_input("Quantity", min_value=0.0, step=1.0, value=10.0)
-    cost = st.number_input("Average Cost Price (₹)", min_value=0.0, step=1.0, value=1000.0)
+    cost = st.number_input("Average Cost Price (₹)", min_value=0.0, step=1.0, value=100.0)
     
     submitted = st.form_submit_button("Add to Portfolio")
     
     if submitted:
-        ticker = stock_directory[selected_stock_name]
-        st.session_state.holdings.append({
-            'name': selected_stock_name,
-            'ticker': ticker,
-            'qty': qty,
-            'cost': cost
-        })
-        st.success(f"Added {selected_stock_name} successfully!")
+        if not ticker_symbol:
+            st.error("Please enter a valid stock symbol.")
+        else:
+            # Auto-format ticker for Yahoo Finance (defaults to National Stock Exchange .NS)
+            formatted_ticker = ticker_symbol
+            if not formatted_ticker.endswith(('.NS', '.BO')):
+                formatted_ticker += '.NS'
+                
+            st.session_state.holdings.append({
+                'display_name': ticker_symbol,
+                'ticker': formatted_ticker,
+                'qty': qty,
+                'cost': cost
+            })
+            st.success(f"Added {ticker_symbol} successfully!")
 
 # Display Portfolio & Fetch Live Prices
 if st.session_state.holdings:
@@ -76,12 +47,14 @@ if st.session_state.holdings:
     total_cost_value = 0
     
     for h in st.session_state.holdings:
+        current_price = h['cost']
         try:
             stock = yf.Ticker(h['ticker'])
             hist = stock.history(period="1d")
-            current_price = hist['Close'].iloc[-1] if not hist.empty else h['cost']
+            if not hist.empty:
+                current_price = hist['Close'].iloc[-1]
         except Exception:
-            current_price = h['cost']
+            pass
             
         market_val = h['qty'] * current_price
         invested_val = h['qty'] * h['cost']
@@ -92,7 +65,7 @@ if st.session_state.holdings:
         total_cost_value += invested_val
         
         portfolio_data.append({
-            'Stock': h['name'],
+            'Stock': h['display_name'],
             'Qty': h['qty'],
             'Cost (₹)': h['cost'],
             'Live Price (₹)': round(current_price, 2),
@@ -115,4 +88,4 @@ if st.session_state.holdings:
         st.session_state.holdings = []
         st.rerun()
 else:
-    st.info("No holdings added yet. Select a stock above to begin tracking with live prices.")
+    st.info("No holdings added yet. Type any stock ticker above (e.g., HFCL) to track it.")
